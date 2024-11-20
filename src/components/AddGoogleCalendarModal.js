@@ -53,7 +53,7 @@ const AddGoogleCalendarModal = ({ open, handleClose, refreshCalendars }) => {
           Crea el calendario donde guardarás las citas
         </Typography>
         <Tabs value={tabValue} onChange={handleChangeTab} aria-label="Tabs de selección de calendario">
-          <Tab label="Calendario de Confirmafy" />
+          <Tab label="Calendario de SER" />
           <Tab label="Calendario de Google" />
         </Tabs>
         {tabValue === 1 && (
