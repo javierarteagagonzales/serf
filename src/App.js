@@ -1,24 +1,22 @@
-import logo from './logo.svg';
-import './App.css';
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Login from './pages/Login';
+import Configuration from './pages/Configuration';
+import Contacts from './pages/Contacts';
+import Reports from './pages/Reports';
+import CalendarConfiguration from './pages/CalendarConfiguration'; // Añadido
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/configuration" element={<Configuration />} />
+        <Route path="/configuration/1" element={<CalendarConfiguration />} /> {/* Nueva ruta */}
+        {/*<Route path="/contacts" element={<Contacts />} />*/}
+        <Route path="/reports" element={<Reports />} />
+      </Routes>
+    </Router>
   );
 }
 
