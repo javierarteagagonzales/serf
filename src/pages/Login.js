@@ -1,16 +1,37 @@
 import React, { useState } from 'react';
-import { Box, Button, TextField, Typography, Container, Divider } from '@mui/material';
+import { Box, Button, TextField, Typography, Container, Divider, Snackbar } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
+import MuiAlert from '@mui/material/Alert';
+import axios from 'axios';
 import logo from '../assets/logo.png'; 
+import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+  const navigate = useNavigate();
 
-  const handleLogin = () => {
-    // Aquí iría la lógica para iniciar sesión con email y contraseña
-    console.log('Email:', email);
-    console.log('Password:', password);
+  const handleLogin = async () => {
+    try {
+      const response = await axios.post('http://localhost:5000/api/auth/login', {
+        username: email,
+        password: password,
+      });
+      // Almacenar el token en el almacenamiento local o manejarlo como sea necesario
+      localStorage.setItem('token', response.data.token);
+      // Redirigir al usuario a la página de configuración
+      navigate('/configuration');
+    } catch (error) {
+      console.error('Error al iniciar sesión:', error);
+      setSnackbarMessage(
+        error.response && error.response.data ? error.response.data.error : 'Error al iniciar sesión'
+      );
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
+    }
   };
 
   const handleGoogleLogin = () => {
@@ -18,10 +39,14 @@ const Login = () => {
     console.log('Iniciar sesión con Google');
   };
 
+  const handleCloseSnackbar = () => {
+    setOpenSnackbar(false);
+  };
+
   return (
     <Container maxWidth="xs" style={{ marginTop: '5vh' }}>
       <Box display="flex" flexDirection="column" alignItems="center">
-        <img src={logo} alt="Logo"  height={60} />
+        <img src={logo} alt="Logo" height={60} />
         <Typography variant="h5" component="h1" sx={{ mt: 2, mb: 3 }}>
           SER Centro Psicológico
         </Typography>
@@ -68,6 +93,21 @@ const Login = () => {
         <Typography variant="body2" color="textSecondary" align="center" sx={{ mt: 1 }}>
           ¿Olvidaste tu contraseña?
         </Typography>
+
+        {/* Snackbar para mostrar mensajes */}
+        <Snackbar
+          open={openSnackbar}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+        >
+          <MuiAlert
+            onClose={handleCloseSnackbar}
+            severity={snackbarSeverity}
+            sx={{ width: '100%' }}
+          >
+            {snackbarMessage}
+          </MuiAlert>
+        </Snackbar>
       </Box>
     </Container>
   );
