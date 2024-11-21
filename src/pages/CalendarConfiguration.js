@@ -1,6 +1,8 @@
+// src/pages/CalendarConfiguration.js
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
+import axios from 'axios';
 import {
   Box,
   Typography,
@@ -19,11 +21,11 @@ import {
 } from '@mui/material';
 import MuiAlert from '@mui/material/Alert';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 const CalendarConfiguration = () => {
   const navigate = useNavigate();
+  const { calendarId } = useParams();
   const [businessName, setBusinessName] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [timeFormat, setTimeFormat] = useState('12h');
@@ -37,27 +39,106 @@ const CalendarConfiguration = () => {
   const [secondReminder, setSecondReminder] = useState(false);
   const [postAppointmentMessage, setPostAppointmentMessage] = useState(false);
   const [includeTimezone, setIncludeTimezone] = useState(false);
+  const [calendarActive, setCalendarActive] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
-  const handleSaveConfiguration = () => {
-    console.log('Configuración guardada:', {
-      businessName,
-      whatsappNumber,
-      timeFormat,
-      timezone,
-      messageType,
-      hoursBefore,
-      confirmationMessage,
-      showDateTime,
-      confirmationReply,
-      cancellationReply,
-      secondReminder,
-      postAppointmentMessage,
-      includeTimezone,
-    });
-    setOpenSnackbar(true);
+  useEffect(() => {
+    const fetchCalendarConfig = async () => {
+      try {
+        const jwtToken = localStorage.getItem('token');
+        if (!jwtToken) {
+          setSnackbarMessage('Por favor, inicia sesión primero.');
+          setSnackbarSeverity('error');
+          setOpenSnackbar(true);
+          return;
+        }
+
+        const response = await axios.get(`http://localhost:5000/api/google/calendar-config/${calendarId}`, {
+          headers: {
+            Authorization: `Bearer ${jwtToken}`,
+          },
+        });
+
+        if (response.status === 200) {
+          const config = response.data;
+          setBusinessName(config.businessName || '');
+          setWhatsappNumber(config.whatsappNumber || '');
+          setTimeFormat(config.timeFormat || '12h');
+          setTimezone(config.timezone || '');
+          setMessageType(config.messageType || 'confirmation');
+          setHoursBefore(config.hoursBefore || 24);
+          setConfirmationMessage(config.confirmationMessage || '');
+          setShowDateTime(config.showDateTime !== undefined ? config.showDateTime : true);
+          setConfirmationReply(config.confirmationReply || '');
+          setCancellationReply(config.cancellationReply || '');
+          setSecondReminder(config.secondReminder || false);
+          setPostAppointmentMessage(config.postAppointmentMessage || false);
+          setIncludeTimezone(config.includeTimezone || false);
+          setCalendarActive(config.active || false);
+        }
+      } catch (error) {
+        console.error('Error al obtener la configuración del calendario:', error);
+        setSnackbarMessage('Hubo un error al obtener la configuración del calendario.');
+        setSnackbarSeverity('error');
+        setOpenSnackbar(true);
+      }
+    };
+
+    fetchCalendarConfig();
+  }, [calendarId]);
+
+  // Manejar la acción de guardar la configuración del calendario
+  const handleSaveConfiguration = async () => {
+    try {
+      const jwtToken = localStorage.getItem('token');
+      if (!jwtToken) {
+        setSnackbarMessage('Por favor, inicia sesión primero.');
+        setSnackbarSeverity('error');
+        setOpenSnackbar(true);
+        return;
+      }
+
+      await axios.post(
+        `http://localhost:5000/api/google/calendar-config/${calendarId}`,
+        {
+          businessName,
+          whatsappNumber,
+          timeFormat,
+          timezone,
+          messageType,
+          hoursBefore,
+          confirmationMessage,
+          showDateTime,
+          confirmationReply,
+          cancellationReply,
+          secondReminder,
+          postAppointmentMessage,
+          includeTimezone,
+          active: calendarActive,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${jwtToken}`,
+          },
+        }
+      );
+      setSnackbarMessage('Configuración guardada con éxito.');
+      setSnackbarSeverity('success');
+      setOpenSnackbar(true);
+
+      // Redirigir a la configuración general después de guardar
+      setTimeout(() => {
+        navigate('/configuration');
+      }, 1500);
+    } catch (error) {
+      console.error('Error al guardar la configuración del calendario:', error);
+      setSnackbarMessage('Hubo un error al guardar la configuración.');
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
+    }
   };
-
 
   const handleCloseSnackbar = () => {
     setOpenSnackbar(false);
@@ -67,14 +148,13 @@ const CalendarConfiguration = () => {
     <Box sx={{ display: 'flex' }}>
       <Sidebar />
 
-      <Box sx={{ p: 4 }}>
-        {/* Flecha de regreso */}
+      <Box sx={{ p: 4, flex: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <IconButton onClick={() => navigate('/configuration')}>
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h4" gutterBottom>
-            Configuración para JT
+            Configuración del Calendario {calendarId}
           </Typography>
         </Box>
 
@@ -82,6 +162,23 @@ const CalendarConfiguration = () => {
           Guardar configuración
         </Button>
 
+        {/* Configuración de activación del calendario */}
+        <Card sx={{ mb: 4 }}>
+          <CardContent>
+            <Typography variant="h6">Estado del calendario</Typography>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={calendarActive}
+                  onChange={() => setCalendarActive((prev) => !prev)}
+                />
+              }
+              label="Calendario activo"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Configuración general */}
         <Card sx={{ mb: 4 }}>
           <CardContent>
             <Typography variant="h6">Configuración general</Typography>
@@ -123,74 +220,12 @@ const CalendarConfiguration = () => {
           </CardContent>
         </Card>
 
-        <Card sx={{ mb: 4 }}>
-          <CardContent>
-            <Typography variant="h6">Tipo de mensaje</Typography>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={messageType === 'confirmation'}
-                  onChange={() =>
-                    setMessageType((prev) => (prev === 'confirmation' ? 'reminder' : 'confirmation'))
-                  }
-                />
-              }
-              label="Confirmación de asistencia"
-            />
-          </CardContent>
-        </Card>
-
-        <Card sx={{ mb: 4 }}>
-          <CardContent>
-            <Typography variant="h6">Tiempo de envío</Typography>
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Horas antes de la cita</InputLabel>
-              <Select
-                value={hoursBefore}
-                onChange={(e) => setHoursBefore(e.target.value)}
-              >
-                <MenuItem value={24}>24 horas antes (1 día antes)</MenuItem>
-                <MenuItem value={48}>48 horas antes (2 días antes)</MenuItem>
-                <MenuItem value={72}>72 horas antes (3 días antes)</MenuItem>
-              </Select>
-            </FormControl>
-          </CardContent>
-        </Card>
-
-        <Card sx={{ mb: 4 }}>
-          <CardContent>
-            <Typography variant="h6">Plantilla para mensaje de confirmación</Typography>
-            <TextField
-              label="Título del mensaje"
-              value={confirmationMessage}
-              onChange={(e) => setConfirmationMessage(e.target.value)}
-              fullWidth
-              margin="normal"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={showDateTime}
-                  onChange={() => setShowDateTime((prev) => !prev)}
-                />
-              }
-              label="Mostrar la fecha y hora en el mensaje"
-            />
-          </CardContent>
-
-          <Button
-  variant="contained"
-  color="secondary"
-  onClick={() => alert('Mensaje de prueba enviado exitosamente')}
-  sx={{ mt: 4 }}
->
-  Enviar Mensaje de Prueba
-</Button>
-        </Card>
-
+        {/* Opciones avanzadas */}
+        {/* Sección para configurar recordatorios, mensajes y más */}
         <Card sx={{ mb: 4 }}>
           <CardContent>
             <Typography variant="h6">Opciones avanzadas</Typography>
+            {/* Segundo recordatorio y mensajes post-cita */}
             <FormControlLabel
               control={
                 <Switch
@@ -221,20 +256,18 @@ const CalendarConfiguration = () => {
           </CardContent>
         </Card>
 
-        <Button variant="contained" color="primary" onClick={handleSaveConfiguration}>
-          Guardar
-        </Button>
+        {/* Snackbar para mensajes */}
         <Snackbar
           open={openSnackbar}
           autoHideDuration={6000}
           onClose={handleCloseSnackbar}
         >
-          <MuiAlert onClose={handleCloseSnackbar} severity="success" sx={{ width: '100%' }}>
-            Configuración guardada con éxito.
+          <MuiAlert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{ width: '100%' }}>
+            {snackbarMessage}
           </MuiAlert>
         </Snackbar>
       </Box>
-      </Box>
+    </Box>
   );
 };
 

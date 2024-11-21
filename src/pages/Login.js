@@ -14,14 +14,17 @@ const Login = () => {
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
   const navigate = useNavigate();
 
+  // Manejar el inicio de sesión con credenciales de email y contraseña
   const handleLogin = async () => {
     try {
       const response = await axios.post('http://localhost:5000/api/auth/login', {
         username: email,
         password: password,
       });
+
       // Almacenar el token en el almacenamiento local o manejarlo como sea necesario
-      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('jwtToken', response.data.token);
+
       // Redirigir al usuario a la página de configuración
       navigate('/configuration');
     } catch (error) {
@@ -34,11 +37,29 @@ const Login = () => {
     }
   };
 
-  const handleGoogleLogin = () => {
-    // Aquí iría la lógica para iniciar sesión con Google
-    console.log('Iniciar sesión con Google');
+  // Manejar la autenticación con Google
+  const handleGoogleLogin = async () => {
+    try {
+      // Obtener el token del almacenamiento local
+      const jwtToken = localStorage.getItem('jwtToken');
+      if (!jwtToken) {
+        setSnackbarMessage('Por favor, inicia sesión primero.');
+        setSnackbarSeverity('error');
+        setOpenSnackbar(true);
+        return;
+      }
+
+      // Redirigir al usuario a la ruta de autenticación de Google con el token JWT
+      window.location.href = `http://localhost:5000/api/google/auth?token=${jwtToken}`;
+    } catch (error) {
+      console.error('Error al autenticar con Google:', error);
+      setSnackbarMessage('Error al autenticar con Google');
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
+    }
   };
 
+  // Cerrar Snackbar
   const handleCloseSnackbar = () => {
     setOpenSnackbar(false);
   };

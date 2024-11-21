@@ -1,6 +1,7 @@
+// src/components/AddGoogleCalendarModal.js
+
 import React, { useState } from 'react';
-import { Box, Button, Typography, Modal, Tab, Tabs, List, ListItem, ListItemText } from '@mui/material';
-import { useGoogleLogin } from '@react-oauth/google';
+import { Box, Button, Typography, Modal, Tab, Tabs, List, ListItem, ListItemText, CircularProgress } from '@mui/material';
 import axios from 'axios';
 
 const style = {
@@ -18,28 +19,93 @@ const style = {
 const AddGoogleCalendarModal = ({ open, handleClose, refreshCalendars }) => {
   const [tabValue, setTabValue] = useState(1);
   const [calendars, setCalendars] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleChangeTab = (event, newValue) => {
     setTabValue(newValue);
   };
 
-  const login = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      try {
-        const response = await axios.post('http://localhost:5000/api/google/add-calendar', {
-          accessToken: tokenResponse.access_token,
-        });
-
-        if (response.status === 200) {
-          setCalendars(response.data);
-        }
-      } catch (err) {
-        setError('Hubo un error al agregar el calendario. Inténtalo de nuevo.');
+  // Función para iniciar la autenticación con Google
+  const handleGoogleLogin = async () => {
+    try {
+      const jwtToken = localStorage.getItem('token');
+      if (!jwtToken) {
+        setError('Por favor, inicia sesión primero.');
+        return;
       }
-    },
-    onError: () => setError('Error al autenticar con Google.'),
-  });
+
+      window.location.href = `http://localhost:5000/api/google/auth?token=${jwtToken}`;
+    } catch (error) {
+      console.error('Error al autenticar con Google:', error);
+      setError('Error al autenticar con Google.');
+    }
+  };
+
+  // Función para obtener los calendarios de Google del usuario autenticado
+  const fetchGoogleCalendars = async () => {
+    setLoading(true);
+    try {
+      const jwtToken = localStorage.getItem('token');
+      if (!jwtToken) {
+        setError('Por favor, inicia sesión primero.');
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.get('http://localhost:5000/api/google/calendars', {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      });
+
+      if (response.status === 200) {
+        setCalendars(response.data);
+      }
+    } catch (err) {
+      console.error('Error al obtener los calendarios de Google:', err);
+      setError('Hubo un error al obtener los calendarios. Inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para seleccionar y guardar un calendario específico
+  const handleCalendarSelect = async (calendarId) => {
+    try {
+      const jwtToken = localStorage.getItem('token');
+      if (!jwtToken) {
+        setError('Por favor, inicia sesión primero.');
+        return;
+      }
+
+      const selectedCalendar = calendars.find((cal) => cal.id === calendarId);
+      if (!selectedCalendar) {
+        setError('Calendario no encontrado.');
+        return;
+      }
+
+      // Enviar la solicitud POST para guardar el calendario seleccionado
+      await axios.post(
+        'http://localhost:5000/api/google/save-calendars',
+        {
+          calendars: [selectedCalendar],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${jwtToken}`,
+          },
+        }
+      );
+
+      // Refrescar la lista de calendarios en la vista principal
+      refreshCalendars();
+      handleClose();
+    } catch (err) {
+      console.error('Error al guardar el calendario:', err);
+      setError('Hubo un error al guardar el calendario. Inténtalo de nuevo.');
+    }
+  };
 
   return (
     <Modal
@@ -50,7 +116,7 @@ const AddGoogleCalendarModal = ({ open, handleClose, refreshCalendars }) => {
     >
       <Box sx={style}>
         <Typography id="modal-title" variant="h6" component="h2" sx={{ mb: 2 }}>
-          Crea el calendario donde guardarás las citas
+          Conecta tu calendario de Google
         </Typography>
         <Tabs value={tabValue} onChange={handleChangeTab} aria-label="Tabs de selección de calendario">
           <Tab label="Calendario de SER" />
@@ -64,17 +130,26 @@ const AddGoogleCalendarModal = ({ open, handleClose, refreshCalendars }) => {
             {calendars.length === 0 && (
               <>
                 <Typography variant="body1" sx={{ mb: 2 }}>
-                  Estos son los calendarios que tienes en Google Calendar. Escoge el calendario donde crearás las citas:
+                  Puedes conectar con Google para sincronizar tus calendarios y seleccionar uno:
                 </Typography>
-                <Button variant="contained" color="primary" onClick={login}>
+                <Button variant="contained" color="primary" onClick={handleGoogleLogin}>
                   Conectar con Google
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={fetchGoogleCalendars}
+                  sx={{ mt: 2 }}
+                  disabled={loading}
+                >
+                  {loading ? <CircularProgress size={24} /> : 'Obtener calendarios'}
                 </Button>
               </>
             )}
             {calendars.length > 0 && (
               <List>
                 {calendars.map((calendar) => (
-                  <ListItem key={calendar.id} button onClick={() => handleClose(calendar.id)}>
+                  <ListItem key={calendar.id} button onClick={() => handleCalendarSelect(calendar.id)}>
                     <ListItemText primary={calendar.summary} />
                   </ListItem>
                 ))}
